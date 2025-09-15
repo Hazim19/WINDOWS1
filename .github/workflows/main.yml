@@ -1,4 +1,4 @@
-name: RDP
+name: RDP with No-IP
 
 on:
   workflow_dispatch:
@@ -9,8 +9,6 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      # Langkah Configure Core RDP Settings, Create RDP User, dan Install Tailscale
-      # ... (semua langkah ini tetap sama persis)
       - name: Configure Core RDP Settings
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
@@ -36,32 +34,62 @@ jobs:
           Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
-      
-      # Langkah Establish Tailscale Connection sedikit diubah untuk menyimpan hostname
+
       - name: Establish Tailscale Connection
         run: |
-          $hostname = "gh-runner-$env:GITHUB_RUN_ID"
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=$hostname
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
           
-          # Verifikasi koneksi (opsional, tapi bagus untuk debugging)
-          Start-Sleep -Seconds 10 # Beri waktu agar koneksi stabil
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" status
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+            Start-Sleep -Seconds 5
+            $retries++
+          }
+          if (-not $tsIP) {
+            Write-Error "Tailscale IP not assigned. Exiting."
+            exit 1
+          }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+      
+      # <-- LANGKAH BARU UNTUK NO-IP DIMULAI DI SINI -->
+      - name: Update No-IP DNS Record
+        run: |
+          $user = "${{ secrets.NOIP_USER }}"
+          $pass = "${{ secrets.NOIP_PASS }}"
+          $hostname = "${{ secrets.NOIP_HOSTNAME }}"
+          $ip = $env:TAILSCALE_IP
           
-          echo "TS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
-
-      # TIDAK PERLU LAGI LANGKAH "Update DDNS Record"
-      # HAPUS SELURUH LANGKAH DDNS DARI SINI
+          # Membuat header otentikasi Basic Auth yang diperlukan oleh No-IP
+          $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $pass)))
+          $headers = @{
+              "Authorization" = "Basic $base64AuthInfo"
+              "User-Agent" = "GitHubActions-RDP-Workflow/1.0 mail@example.com"
+          }
+          
+          # URL untuk update No-IP
+          $updateUrl = "http://dynupdate.no-ip.com/nic/update?hostname=$hostname&myip=$ip"
+          
+          Write-Host "Updating No-IP record for $hostname to point to $ip..."
+          $response = Invoke-RestMethod -Uri $updateUrl -Headers $headers
+          
+          # Verifikasi respon dari No-IP
+          if ($response -like "good*" -or $response -like "nochg*") {
+            Write-Host "Successfully updated No-IP record. Response: $response"
+            echo "DDNS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
+          } else {
+            Write-Error "Failed to update No-IP. Response: $response"
+            exit 1
+          }
 
       - name: Maintain Connection
         run: |
-          Write-Host "`n=== RDP ACCESS ==="
-          # Gunakan nama host Tailscale yang sudah Anda definisikan
-          Write-Host "Address: $env:TS_HOSTNAME" 
+          Write-Host "`n=== RDP ACCESS (ALAMAT PERMANEN) ==="
+          # <-- Alamat ini akan selalu sama, diambil dari No-IP Hostname Anda
+          Write-Host "Address: $env:DDNS_HOSTNAME" 
           Write-Host "Username: RDP"
           Write-Host "Password: $env:RDP_PASSWORD"
-          Write-Host "==================`n"
-          
-          Write-Host "Anda sekarang bisa RDP menggunakan nama host di atas dari perangkat lain yang terhubung ke Tailscale."
+          Write-Host "====================================`n"
           
           while ($true) {
             Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
