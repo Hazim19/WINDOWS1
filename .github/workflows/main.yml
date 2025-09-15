@@ -52,7 +52,6 @@ jobs:
           }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
       
-      # <-- LANGKAH BARU UNTUK NO-IP DIMULAI DI SINI -->
       - name: Update No-IP DNS Record
         run: |
           $user = "${{ secrets.NOIP_USER }}"
@@ -64,7 +63,6 @@ jobs:
           $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $pass)))
           $headers = @{
               "Authorization" = "Basic $base64AuthInfo"
-              # <-- "User-Agent" DIHAPUS DARI SINI
           }
           
           # URL untuk update No-IP
@@ -74,7 +72,7 @@ jobs:
           $userAgent = "GitHubActions-RDP-Workflow/1.0 $user"
 
           Write-Host "Updating No-IP record for $hostname to point to $ip..."
-          # <-- PARAMETER -UserAgent BARU DITAMBAHKAN DI BAWAH INI
+          # Menggunakan parameter -UserAgent terpisah
           $response = Invoke-RestMethod -Uri $updateUrl -Headers $headers -UserAgent $userAgent
           
           # Verifikasi respon dari No-IP
@@ -89,7 +87,6 @@ jobs:
       - name: Maintain Connection
         run: |
           Write-Host "`n=== RDP ACCESS (ALAMAT PERMANEN) ==="
-          # <-- Alamat ini akan selalu sama, diambil dari No-IP Hostname Anda
           Write-Host "Address: $env:DDNS_HOSTNAME" 
           Write-Host "Username: RDP"
           Write-Host "Password: $env:RDP_PASSWORD"
