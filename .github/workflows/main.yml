@@ -64,14 +64,18 @@ jobs:
           $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $pass)))
           $headers = @{
               "Authorization" = "Basic $base64AuthInfo"
-              "User-Agent" = "GitHubActions-RDP-Workflow/1.0 mail@example.com"
+              # <-- "User-Agent" DIHAPUS DARI SINI
           }
           
           # URL untuk update No-IP
           $updateUrl = "http://dynupdate.no-ip.com/nic/update?hostname=$hostname&myip=$ip"
           
+          # Membuat User-Agent yang valid, menggunakan email No-IP Anda
+          $userAgent = "GitHubActions-RDP-Workflow/1.0 $user"
+
           Write-Host "Updating No-IP record for $hostname to point to $ip..."
-          $response = Invoke-RestMethod -Uri $updateUrl -Headers $headers
+          # <-- PARAMETER -UserAgent BARU DITAMBAHKAN DI BAWAH INI
+          $response = Invoke-RestMethod -Uri $updateUrl -Headers $headers -UserAgent $userAgent
           
           # Verifikasi respon dari No-IP
           if ($response -like "good*" -or $response -like "nochg*") {
