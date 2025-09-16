@@ -105,10 +105,10 @@ jobs:
           Write-Host "Sending 5-minute warning to Telegram..."
           $bot_token = "8375325991:AAGTI6H4-1qpq3OQlsQV0lquURMpbozpt4I"
           $chat_id = "924060604"
-          $repo_name = "${{ github.repository }}"
-          $message = "⚠️ *WINDOWS  sisa waktu 5 menit lagi, Segera persiapkan*
-          "
-
+          
+          $message = "⚠️ *WINDOWS WINDOWS1 sisa waktu 5 menit lagi, Segera persiapkan*
+"
+          
           $telegram_url = "https://api.telegram.org/bot$bot_token/sendMessage"
           $body = @{ chat_id = $chat_id; text = $message; parse_mode = 'Markdown' } | ConvertTo-Json
           
