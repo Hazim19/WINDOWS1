@@ -1,4 +1,4 @@
-name: RDP with No-IP
+name: RDP with Dynu DNS
 
 on:
   workflow_dispatch:
@@ -45,11 +45,15 @@ jobs:
       
       - name: Update Dynu DNS Record
         run: |
-          # ▼▼▼ MASUKKAN USER, PASS, DAN HOSTNAME ANDA DI SINI ▼▼▼
+          # ▼▼▼ MASUKKAN USER DAN PASS ANDA DI SINI ▼▼▼
           $user = "jimybot"
           $pass = "Jimyb0t159*"
-          $hostname = "windows1.freeddns.org"
-          # ▲▲▲ MASUKKAN USER, PASS, DAN HOSTNAME ANDA DI ATAS ▲▲▲
+          # ▲▲▲ MASUKKAN USER DAN PASS ANDA DI ATAS ▲▲▲
+
+          # Dapatkan nama repositori (mis. WINDOWS1) dari variabel lingkungan
+          $repo_name = "${{ github.event.repository.name }}"
+          # Gabungkan dengan domain DDNS
+          $hostname = "$($repo_name.ToLower()).freeddns.org"
           $ip = $env:TAILSCALE_IP
           
           $updateUrl = "https://api.dynu.com/nic/update?hostname=$hostname&myip=$ip&username=$user&password=$pass"
@@ -65,7 +69,6 @@ jobs:
               Write-Error "Failed to update Dynu DNS. Response: $response"; exit 1
           }
 
-
       - name: Send Connection Details to Telegram
         if: success()
         run: |
@@ -73,7 +76,6 @@ jobs:
           $bot_token = "8375325991:AAGTI6H4-1qpq3OQlsQV0lquURMpbozpt4I"
           $chat_id = "924060604"
           # ▲▲▲ MASUKKAN TOKEN DAN ID ANDA DI ATAS ▲▲▲
-
           $hostname = $env:DDNS_HOSTNAME
           $password = $env:RDP_PASSWORD
           $repo_name = "${{ github.repository }}"
