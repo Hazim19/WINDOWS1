@@ -1,103 +1,103 @@
 name: RDP with Dynu DNS
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-  secure-rdp:
-    runs-on: windows-2022
-    timeout-minutes: 360
+  secure-rdp:
+    runs-on: windows-2022
+    timeout-minutes: 360
 
-    steps:
-      - name: Configure Core RDP Settings
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
-          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
-          Restart-Service -Name TermService -Force
+    steps:
+      - name: Configure Core RDP Settings
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
 
-      - name: Create RDP User with Secure Password
-        run: |
-          $password = "Qwe123!"
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-          echo "RDP_PASSWORD=$password" >> $env:GITHUB_ENV
+      - name: Create RDP User with Secure Password
+        run: |
+          $password = "Qwe123!"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+          echo "RDP_PASSWORD=$password" >> $env:GITHUB_ENV
 
-      - name: Install Tailscale
-        run: |
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale_setup.exe"
-          Start-Process -FilePath ".\tailscale_setup.exe" -ArgumentList "/S" -Wait
+      - name: Install Tailscale
+        run: |
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale_setup.exe"
+          Start-Process -FilePath ".\tailscale_setup.exe" -ArgumentList "/S" -Wait
 
-      - name: Establish Tailscale Connection
-        run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
-          
-          $tsIP = $null; $retries = 0
-          while (-not $tsIP -and $retries -lt 12) {
-            Start-Sleep -Seconds 5
-            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-            $retries++
-          }
-          if (-not $tsIP) { Write-Error "Tailscale IP not assigned."; exit 1 }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-      
-      - name: Update Dynu DNS Record
-        run: |
-          # ▼▼▼ MASUKKAN USER DAN PASS ANDA DI SINI ▼▼▼
-          $user = "jimybot"
-          $pass = "Jimyb0t159*"
-          # ▲▲▲ MASUKKAN USER DAN PASS ANDA DI ATAS ▲▲▲
+      - name: Establish Tailscale Connection
+        run: |
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          
+          $tsIP = $null; $retries = 0
+          while (-not $tsIP -and $retries -lt 12) {
+            Start-Sleep -Seconds 5
+            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+            $retries++
+          }
+          if (-not $tsIP) { Write-Error "Tailscale IP not assigned."; exit 1 }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+      
+      - name: Update Dynu DNS Record
+        run: |
+          # ▼▼▼ MASUKKAN USER DAN PASS ANDA DI SINI ▼▼▼
+          $user = "jimybot"
+          $pass = "Jimyb0t159*"
+          # ▲▲▲ MASUKKAN USER DAN PASS ANDA DI ATAS ▲▲▲
 
-          # Dapatkan nama repositori (mis. WINDOWS1) dari variabel lingkungan
-          $repo_name = "${{ github.event.repository.name }}"
-          # Gabungkan dengan domain DDNS
-          $hostname = "$($repo_name.ToLower()).freeddns.org"
-          $ip = $env:TAILSCALE_IP
-          
-          $updateUrl = "https://api.dynu.com/nic/update?hostname=$hostname&myip=$ip&username=$user&password=$pass"
-          $userAgent = "GitHubActions-RDP/1.0 $user"
+          # Dapatkan nama repositori (mis. WINDOWS1) dari variabel lingkungan
+          $repo_name = "${{ github.event.repository.name }}"
+          # Gabungkan dengan domain Anda untuk membuat hostname unik
+          $hostname = "$($repo_name.ToLower()).jimybot.my.id"
+          $ip = $env:TAILSCALE_IP
+          
+          $updateUrl = "https://api.dynu.com/nic/update?hostname=$hostname&myip=$ip&username=$user&password=$pass"
+          $userAgent = "GitHubActions-RDP/1.0 $user"
 
-          Write-Host "Updating Dynu record for $hostname..."
-          $response = Invoke-RestMethod -Uri $updateUrl -UserAgent $userAgent
-          
-          if ($response -like "good*" -or $response -like "nochg*") {
-              Write-Host "Successfully updated Dynu DNS. Response: $response"
-              echo "DDNS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
-          } else {
-              Write-Error "Failed to update Dynu DNS. Response: $response"; exit 1
-          }
+          Write-Host "Updating Dynu record for $hostname..."
+          $response = Invoke-RestMethod -Uri $updateUrl -UserAgent $userAgent
+          
+          if ($response -like "good*" -or $response -like "nochg*") {
+              Write-Host "Successfully updated Dynu DNS. Response: $response"
+              echo "DDNS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
+          } else {
+              Write-Error "Failed to update Dynu DNS. Response: $response"; exit 1
+          }
 
-      - name: Send Connection Details to Telegram
-        if: success()
-        run: |
-          # ▼▼▼ MASUKKAN TOKEN DAN ID ANDA DI SINI ▼▼▼
-          $bot_token = "8375325991:AAGTI6H4-1qpq3OQlsQV0lquURMpbozpt4I"
-          $chat_id = "924060604"
-          # ▲▲▲ MASUKKAN TOKEN DAN ID ANDA DI ATAS ▲▲▲
-          $hostname = $env:DDNS_HOSTNAME
-          $password = $env:RDP_PASSWORD
-          $repo_name = "${{ github.repository }}"
-          
-          $message = @"
-          ✅ *Sesi RDP Siap Digunakan*
-          --------------------------------------
-          🖥️ *Alamat* : $hostname
-          👤 *Username* : RDP
-          🔑 *Password* : $password
-          --------------------------------------
-          Repositori: $repo_name
-          "@
-          
-          $telegram_url = "https://api.telegram.org/bot$bot_token/sendMessage"
-          $body = @{ chat_id = $chat_id; text = $message; parse_mode = 'Markdown' } | ConvertTo-Json
-          
-          Invoke-RestMethod -Uri $telegram_url -Method Post -Body $body -ContentType 'application/json'
+      - name: Send Connection Details to Telegram
+        if: success()
+        run: |
+          # ▼▼▼ MASUKKAN TOKEN DAN ID ANDA DI SINI ▼▼▼
+          $bot_token = "8375325991:AAGTI6H4-1qpq3OQlsQV0lquURMpbozpt4I"
+          $chat_id = "924060604"
+          # ▲▲▲ MASUKKAN TOKEN DAN ID ANDA DI ATAS ▲▲▲
+          $hostname = $env:DDNS_HOSTNAME
+          $password = $env:RDP_PASSWORD
+          $repo_name = "${{ github.repository }}"
+          
+          $message = @"
+          ✅ *Sesi RDP Siap Digunakan*
+          --------------------------------------
+          🖥️ *Alamat* : $hostname
+          👤 *Username* : RDP
+          🔑 *Password* : $password
+          --------------------------------------
+          Repositori: $repo_name
+          "@
+          
+          $telegram_url = "https://api.telegram.org/bot$bot_token/sendMessage"
+          $body = @{ chat_id = $chat_id; text = $message; parse_mode = 'Markdown' } | ConvertTo-Json
+          
+          Invoke-RestMethod -Uri $telegram_url -Method Post -Body $body -ContentType 'application/json'
 
-      - name: Maintain Connection
-        run: |
-          Write-Host "RDP session is active. Connection details sent to Telegram."
-          while ($true) {
-            Start-Sleep -Seconds 300
-          }
+      - name: Maintain Connection
+        run: |
+          Write-Host "RDP session is active. Connection details sent to Telegram."
+          while ($true) {
+            Start-Sleep -Seconds 300
+          }
