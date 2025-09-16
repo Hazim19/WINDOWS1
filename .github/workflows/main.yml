@@ -45,15 +45,15 @@ jobs:
       
       - name: Update Dynu DNS Record
         run: |
-          # ▼▼▼ MASUKKAN USER DAN PASS ANDA DI SINI ▼▼▼
+          # ▼▼▼ KREDENSIAL DIBAWAH INI OTOMATIS BERGANTI ▼▼▼
           $user = "jimybot"
           $pass = "Jimyb0t159*"
-          # ▲▲▲ MASUKKAN USER DAN PASS ANDA DI ATAS ▲▲▲
+          # ▲▲▲ KREDENSIAL DIATAS INI OTOMATIS BERGANTI ▲▲▲
 
           # Dapatkan nama repositori (mis. WINDOWS1) dari variabel lingkungan
           $repo_name = "${{ github.event.repository.name }}"
-          # Gabungkan dengan domain Anda untuk membuat hostname unik
-          $hostname = "$($repo_name.ToLower()).jimybot.my.id"
+          # Gabungkan dengan domain DDNS
+          $hostname = "$($repo_name.ToLower()).freeddns.org"
           $ip = $env:TAILSCALE_IP
           
           $updateUrl = "https://api.dynu.com/nic/update?hostname=$hostname&myip=$ip&username=$user&password=$pass"
