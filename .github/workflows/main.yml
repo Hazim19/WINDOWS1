@@ -43,27 +43,28 @@ jobs:
           if (-not $tsIP) { Write-Error "Tailscale IP not assigned."; exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
       
-      - name: Update No-IP DNS Record
+      - name: Update Dynu DNS Record
         run: |
-          $user = "${{ secrets.NOIP_USER }}"
-          $pass = "${{ secrets.NOIP_PASS }}"
-          $hostname = "${{ secrets.NOIP_HOSTNAME }}"
+          # ▼▼▼ MASUKKAN USER, PASS, DAN HOSTNAME ANDA DI SINI ▼▼▼
+          $user = "jimybot"
+          $pass = "Jimyb0t159*"
+          $hostname = "windows1.freeddns.org"
+          # ▲▲▲ MASUKKAN USER, PASS, DAN HOSTNAME ANDA DI ATAS ▲▲▲
           $ip = $env:TAILSCALE_IP
           
-          $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $pass)))
-          $headers = @{ "Authorization" = "Basic $base64AuthInfo" }
-          $updateUrl = "http://dynupdate.no-ip.com/nic/update?hostname=$hostname&myip=$ip"
+          $updateUrl = "https://api.dynu.com/nic/update?hostname=$hostname&myip=$ip&username=$user&password=$pass"
           $userAgent = "GitHubActions-RDP/1.0 $user"
 
-          Write-Host "Updating No-IP record for $hostname..."
-          $response = Invoke-RestMethod -Uri $updateUrl -Headers $headers -UserAgent $userAgent
+          Write-Host "Updating Dynu record for $hostname..."
+          $response = Invoke-RestMethod -Uri $updateUrl -UserAgent $userAgent
           
           if ($response -like "good*" -or $response -like "nochg*") {
-            Write-Host "Successfully updated No-IP. Response: $response"
-            echo "DDNS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
+              Write-Host "Successfully updated Dynu DNS. Response: $response"
+              echo "DDNS_HOSTNAME=$hostname" >> $env:GITHUB_ENV
           } else {
-            Write-Error "Failed to update No-IP. Response: $response"; exit 1
+              Write-Error "Failed to update Dynu DNS. Response: $response"; exit 1
           }
+
 
       - name: Send Connection Details to Telegram
         if: success()
