@@ -24,6 +24,38 @@ jobs:
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale_setup.exe"
           Start-Process -FilePath ".\tailscale_setup.exe" -ArgumentList "/S" -Wait
+      - name: Remove Old Tailscale Device if Exists
+        shell: powershell
+        run: |
+          # Variabel yang dibutuhkan
+          $tailnet = "${{ secrets.TAILSCALE_TAILNET }}"
+          $apiKey = "${{ secrets.TAILSCALE_API_KEY }}"
+          $targetHostname = "${{ github.event.repository.name }}".ToLower()
+
+          Write-Host "Mencari perangkat lama dengan nama '$targetHostname'..."
+
+          # Header untuk otentikasi API
+          $headers = @{ "Authorization" = "Bearer $apiKey" }
+
+          # Dapatkan semua daftar perangkat di tailnet
+          $apiUrl = "https://api.tailscale.com/api/v2/tailnet/$tailnet/devices"
+          $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+
+          # Cari perangkat yang cocok dengan hostname target
+          $deviceToDelete = $response.devices | Where-Object { $_.hostname -eq $targetHostname }
+
+          if ($null -ne $deviceToDelete) {
+              $deviceId = $deviceToDelete.id
+              Write-Host "Perangkat lama ditemukan dengan ID: $deviceId. Menghapus..."
+              
+              # Hapus perangkat menggunakan ID-nya
+              $deleteUrl = "https://api.tailscale.com/api/v2/device/$deviceId"
+              Invoke-RestMethod -Method Delete -Uri $deleteUrl -Headers $headers
+              
+              Write-Host "Perangkat lama '$targetHostname' berhasil dihapus."
+          } else {
+              Write-Host "Tidak ada perangkat lama dengan nama '$targetHostname' yang ditemukan. Melanjutkan..."
+          }
       - name: Establish Tailscale Connection
         run: |
           # ... (kode yang sudah ada untuk login Tailscale) ...
