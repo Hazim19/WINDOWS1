@@ -26,7 +26,8 @@ jobs:
           Start-Process -FilePath ".\tailscale_setup.exe" -ArgumentList "/S" -Wait
       - name: Establish Tailscale Connection
         run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          $repo_name = "${{ github.event.repository.name }}".ToLower()
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=$repo_name
           $tsIP = $null
           for ($i=0; $i -lt 12; $i++) {
             $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
@@ -35,6 +36,10 @@ jobs:
           }
           if (-not $tsIP) { Write-Error "Tailscale IP not assigned."; exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          Write-Host "Getting Tailscale MagicDNS name..."
+          $statusJson = & "$env:ProgramFiles\Tailscale\tailscale.exe" status --json
+          $magicDns = ($statusJson | ConvertFrom-Json).Self.DNSName.TrimEnd('.')
+          echo "MAGIC_DNS=$magicDns" >> $env:GITHUB_ENV
       - name: Update Dynu DNS Record
         run: |
           $user = '${{ secrets.DYNU_USER }}'
