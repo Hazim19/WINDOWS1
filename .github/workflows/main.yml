@@ -65,10 +65,12 @@ jobs:
           $hostname = $env:DDNS_HOSTNAME
           $password = $env:RDP_PASSWORD
           $repo_name = "${{ github.repository }}"
+          $magic_dns = $env:MAGIC_DNS 
           $message = @"
           ✅ *Sesi RDP Siap Digunakan*
           --------------------------------------
           🖥️ *Alamat* : $hostname
+          🌐 *MagicDNS* : `$magic_dns`
           👤 *Username* : RDP
           🔑 *Password* : $password
           --------------------------------------
