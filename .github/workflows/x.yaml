@@ -98,7 +98,7 @@ jobs:
           "@
           $telegram_url = "https://api.telegram.org/bot$bot_token/sendMessage"
           $body = @{ chat_id = $chat_id; text = $message; parse_mode = 'Markdown' } | ConvertTo-Json
-          Invoke-RestMethod -Uri $telegram_url -Method Post -Body $body -ContentType 'application/json'
+          Invoke-RestMethod -Uri $telegram_url -Method Post -Body $body -ContentType 'application/json; charset=utf-8'
       - name: Maintain Connection & Send 5-Minute Warning
         shell: powershell
         run: |
